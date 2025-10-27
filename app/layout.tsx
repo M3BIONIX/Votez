@@ -9,6 +9,9 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Votez',
   description: 'A simple app to create Votez',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
