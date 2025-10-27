@@ -1,4 +1,3 @@
-import { env } from './env-config';
 
 type MessageHandler = (message: any) => void;
 
@@ -70,9 +69,9 @@ class WebSocketManager {
     }, 3000);
   }
 
-  // Get WebSocket URL from env config
+  // Get WebSocket URL from environment variables
   private getWebSocketUrl(): string {
-    return env.NEXT_PUBLIC_WS_URL;
+    return process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws';
   }
 
   disconnect() {

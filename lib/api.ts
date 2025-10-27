@@ -5,10 +5,9 @@ import {
 } from "@/application-shared/interfaces/shared-interfaces";
 import {CreatePollRequest, Poll, UpdatePollRequest} from "@/application-shared/interfaces/polls-interface";
 import { CurrentUser, LoginResponse } from "@/application-shared/interfaces/user-interfaces";
-import { env } from './env-config';
 import { getToken, clearToken, dispatchLogoutEvent } from './token-utils';
 
-const API_BASE_URL = env.NEXT_PUBLIC_API_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Get headers with auth if available
 function getHeaders(includeAuth: boolean = true): HeadersInit {
