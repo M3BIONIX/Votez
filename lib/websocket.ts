@@ -10,6 +10,14 @@ class WebSocketManager {
 
   connect(url?: string) {
     this.url = url || this.getWebSocketUrl();
+    
+    // Convert ws:// to wss:// if page is served over HTTPS
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+      if (this.url.startsWith('ws://')) {
+        console.warn(`Converting insecure WebSocket URL to secure. Original: ${this.url}`);
+        this.url = this.url.replace('ws://', 'wss://');
+      }
+    }
 
     if (this.ws?.readyState === WebSocket.OPEN) {
       return;
@@ -49,9 +57,15 @@ class WebSocketManager {
 
       this.ws.onerror = (error) => {
         console.error('WebSocket error:', error);
+        console.error('Attempted URL:', this.url);
+        console.error('Page protocol:', typeof window !== 'undefined' ? window.location.protocol : 'server-side');
       };
     } catch (error) {
       console.error('Error connecting WebSocket:', error);
+      console.error('Attempted URL:', this.url);
+      if (error instanceof Error && error.message.includes('insecure')) {
+        console.error('Make sure you are using wss:// (secure WebSocket) when the page is served over HTTPS');
+      }
       this.scheduleReconnect();
     }
   }
@@ -71,7 +85,25 @@ class WebSocketManager {
 
   // Get WebSocket URL from environment variables
   private getWebSocketUrl(): string {
-    return process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws';
+    const envUrl = process.env.NEXT_PUBLIC_WS_URL;
+    
+    // If environment variable is provided, use it
+    if (envUrl) {
+      return envUrl;
+    }
+    
+    // Default to localhost for development
+    const defaultUrl = 'ws://localhost:8000/ws';
+    
+    // In production or secure contexts, use wss:// instead of ws://
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+      // Convert ws:// to wss:// for HTTPS pages
+      if (defaultUrl.startsWith('ws://')) {
+        return defaultUrl.replace('ws://', 'wss://');
+      }
+    }
+    
+    return defaultUrl;
   }
 
   disconnect() {
