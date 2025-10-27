@@ -13,11 +13,6 @@ import { useAuth } from '@/lib/auth-store';
 import { usePollsStore } from '@/lib/stores/polls-store';
 
 export default function Home() {
-  // Debug: Log environment variables
-  useEffect(() => {
-    console.log('NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
-    console.log('NEXT_PUBLIC_WS_URL:', process.env.NEXT_PUBLIC_WS_URL);
-  }, []);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const { isAuthenticated, user, isLoading: authLoading } = useAuth();
