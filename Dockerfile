@@ -12,10 +12,8 @@ RUN npm ci
 # Copy application files
 COPY . .
 
-# Generate env config
-RUN npm run generate:env
-
 # Build the application
+# Note: Environment variables are read from process.env at runtime
 RUN npm run build
 
 # Production stage
