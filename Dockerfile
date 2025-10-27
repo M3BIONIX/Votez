@@ -13,7 +13,15 @@ RUN npm ci
 COPY . .
 
 # Build the application
-# Note: Environment variables are read from process.env at runtime
+# Pass environment variables as build arguments
+# These will be embedded at build time for client-side code
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_WS_URL
+
+# Set them as environment variables during build
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+
 RUN npm run build
 
 # Production stage
