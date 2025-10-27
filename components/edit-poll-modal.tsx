@@ -14,7 +14,7 @@ import {
 import { updatePoll, deletePoll, addPollOptions, deletePollOptions } from '@/lib/api';
 import { toast } from 'sonner';
 import { Loader2, Pencil, Trash2, Plus } from 'lucide-react';
-import { Poll, UpdatePollRequest } from '@/application-shared/interfaces/polls-interface';
+import { UpdatePollRequest } from '@/application-shared/interfaces/polls-interface';
 import { TOAST_MESSAGES } from '@/application-shared/constants/toaster-constants';
 import {
   validatePollTitle,
