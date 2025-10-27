@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { updatePoll, deletePoll, addPollOptions, deletePollOptions } from '@/lib/api';
+import { usePollsStore } from '@/lib/stores/polls-store';
 import { toast } from 'sonner';
 import { Loader2, Pencil, Trash2, Plus } from 'lucide-react';
 import { UpdatePollRequest } from '@/application-shared/interfaces/polls-interface';
@@ -25,7 +25,8 @@ import {
 } from './helper/edit-poll-modal-helpers';
 import { EditPollModalProps } from './interfaces/edit-poll-modal-interface';
 
-export function EditPollModal({ poll, open, onOpenChange, onPollUpdated }: EditPollModalProps) {
+export function EditPollModal({ poll, open, onOpenChange }: Omit<EditPollModalProps, 'onPollUpdated'>) {
+  const { updatePoll, deletePoll, addPollOptions, deletePollOptions, polls } = usePollsStore();
   const [currentPoll, setCurrentPoll] = useState(poll);
   const [title, setTitle] = useState(poll.title || '');
   const [options, setOptions] = useState(poll.options?.map(opt => ({
@@ -35,6 +36,24 @@ export function EditPollModal({ poll, open, onOpenChange, onPollUpdated }: EditP
   })));
   const [loading, setLoading] = useState(false);
   const ignorePollUpdateRef = useRef(false);
+
+  // Update from store when poll changes (e.g., when options are added/deleted via API)
+  useEffect(() => {
+    const updatedPoll = polls.find(p => p.uuid === poll.uuid);
+    if (updatedPoll && open) {
+      // Only update if the modal is not currently being edited and we have more options
+      // This prevents race conditions when adding/removing options
+      if (updatedPoll.options.length !== options.length) {
+        setCurrentPoll(updatedPoll);
+        setTitle(updatedPoll.title);
+        setOptions(updatedPoll.options.map(opt => ({
+          uuid: opt.uuid,
+          version_id: opt.version_id,
+          text: opt.option_name,
+        })));
+      }
+    }
+  }, [polls, poll.uuid, open]);
 
   useEffect(() => {
     if (ignorePollUpdateRef.current) {
@@ -76,18 +95,12 @@ export function EditPollModal({ poll, open, onOpenChange, onPollUpdated }: EditP
       setLoading(true);
       ignorePollUpdateRef.current = true;
       try {
-        const updatedPoll = await deletePollOptions(currentPoll.uuid, [optionToRemove.uuid]);
-        
-        setCurrentPoll(updatedPoll);
-        setOptions(updatedPoll.options.map(opt => ({
-          uuid: opt.uuid,
-          version_id: opt.version_id,
-          text: opt.option_name,
-          })));
-          
-          toast.success(TOAST_MESSAGES.POLL.OPTION_DELETED_SUCCESS);
-        } catch (error: any) {
-          toast.error(error.message || TOAST_MESSAGES.POLL.OPTION_DELETED_FAILED);
+        await deletePollOptions(currentPoll.uuid, [optionToRemove.uuid]);
+        toast.success(TOAST_MESSAGES.POLL.OPTION_DELETED_SUCCESS);
+        // Update local options state
+        setOptions(options.filter((_, i) => i !== index));
+      } catch (error: any) {
+        toast.error(error.message || TOAST_MESSAGES.POLL.OPTION_DELETED_FAILED);
       } finally {
         setLoading(false);
       }
@@ -107,8 +120,6 @@ export function EditPollModal({ poll, open, onOpenChange, onPollUpdated }: EditP
       await deletePoll(currentPoll.uuid);
       toast.success(TOAST_MESSAGES.POLL.DELETED_SUCCESS);
       onOpenChange(false);
-      onPollUpdated(currentPoll);
-      window.location.reload();
     } catch (error: any) {
       toast.error(error.message || TOAST_MESSAGES.POLL.DELETED_FAILED);
     } finally {
@@ -147,14 +158,16 @@ export function EditPollModal({ poll, open, onOpenChange, onPollUpdated }: EditP
     setLoading(true);
 
     try {
-      let updatedPoll = currentPoll;
+      const latestPoll = polls.find(p => p.uuid === currentPoll.uuid) || currentPoll;
 
+      // Delete options if needed
       if (deletedOptions.length > 0) {
-        updatedPoll = await deletePollOptions(currentPoll.uuid, deletedOptions);
+        await deletePollOptions(latestPoll.uuid, deletedOptions);
       }
 
-      if (title.trim() !== currentPoll.title || existingOptions.some((opt, idx) =>
-        opt.text.trim() !== originalOptions[idx]?.option_name
+      // Update poll title/options if needed
+      if (title.trim() !== latestPoll.title || existingOptions.some((opt, idx) =>
+        opt.text.trim() !== latestPoll.options[idx]?.option_name
       )) {
         const updateData: UpdatePollRequest = {
           title: title.trim(),
@@ -163,14 +176,15 @@ export function EditPollModal({ poll, open, onOpenChange, onPollUpdated }: EditP
             version_id: opt.version_id,
             option_name: opt.text.trim(),
           })),
-          version_id: updatedPoll.version_id,
+          version_id: latestPoll.version_id,
         };
 
-        updatedPoll = await updatePoll(updatedPoll.uuid, updateData);
+        await updatePoll(latestPoll.uuid, updateData);
       }
 
+      // Add new options if needed
       if (newOptions.length > 0) {
-        await addPollOptions(updatedPoll.uuid, newOptions.map(opt => ({
+        await addPollOptions(latestPoll.uuid, newOptions.map(opt => ({
           option_name: opt.text.trim()
         })));
       }

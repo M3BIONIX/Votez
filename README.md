@@ -1,6 +1,6 @@
 # Votez - Real-Time Polling Platform
 
-A modern, real-time polling platform that allows users to create polls, vote, and see results update instantly across all connected users.
+A modern, real-time polling platform that allows users to create polls, vote, and see results update instantly across all connected users. Built with Zustand for robust state management.
 
 ## 🚀 Quick Start
 
@@ -74,6 +74,7 @@ A modern, real-time polling platform that allows users to create polls, vote, an
 - **Authentication**: User registration and login system
 
 ### Technical Highlights
+- **State Management**: Zustand for lightweight, performant state management
 - **Real-time Communication**: WebSocket implementation for live updates
 - **Type Safety**: Full TypeScript implementation throughout frontend
 - **Modern UI**: Clean, accessible interface using shadcn/ui components
@@ -86,6 +87,7 @@ A modern, real-time polling platform that allows users to create polls, vote, an
 - **Next.js 13** - React framework with App Router
 - **React 18** - UI component library
 - **TypeScript** - Type-safe development
+- **Zustand** - Lightweight state management library
 - **shadcn/ui** - Modern, accessible component library
 - **Tailwind CSS** - Utility-first styling
 - **Lucide React** - Icon library
@@ -109,7 +111,9 @@ Votez/
 │   └── ui/                      # UI components
 ├── lib/                         # Utilities
 │   ├── api.ts                   # API client
-│   ├── auth-store.tsx           # Authentication context
+│   ├── auth-store.tsx           # Zustand auth store
+│   ├── stores/                  # Zustand stores
+│   │   └── polls-store.ts       # Polls state management
 │   ├── websocket.ts             # WebSocket manager
 │   ├── token-utils.ts           # Token utilities
 │   └── utils.ts                 # General utilities

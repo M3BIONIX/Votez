@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { createPoll } from '@/lib/api';
+import { usePollsStore } from '@/lib/stores/polls-store';
 import { PlusCircle, X, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { TOAST_MESSAGES } from '@/application-shared/constants/toaster-constants';
@@ -18,6 +18,7 @@ import {
 import { CreatePollFormProps } from './interfaces/create-poll-form-interface';
 
 export function CreatePollForm({ onPollCreated }: CreatePollFormProps) {
+  const { createPoll } = usePollsStore();
   const [title, setTitle] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [loading, setLoading] = useState(false);
@@ -62,13 +63,13 @@ export function CreatePollForm({ onPollCreated }: CreatePollFormProps) {
     setLoading(true);
 
     try {
-      const poll = await createPoll({
+      await createPoll({
         title: title.trim(),
         options: validOptions.map(opt => ({ option_name: opt.trim() }))
       });
 
       toast.success(TOAST_MESSAGES.POLL.CREATED_SUCCESS);
-      onPollCreated(poll);
+      onPollCreated(null as any); // WebSocket will handle the poll creation
       setTitle('');
       setOptions(['', '']);
     } catch (error) {

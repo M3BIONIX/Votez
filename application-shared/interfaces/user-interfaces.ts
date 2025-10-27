@@ -2,7 +2,10 @@ export interface UserVotedPollInfo {
   poll_uuid: string;
   option_uuid: string;
   total_votes: number;
-  summary: Record<string, number>;
+  summary: {
+    total_votes: number;
+    option_percentages: Record<string, number>;
+  };
 }
 
 export interface CurrentUser {

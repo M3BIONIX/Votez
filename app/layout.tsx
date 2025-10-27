@@ -2,7 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import React from "react";
-import { AuthProvider } from '@/lib/auth-store';
+import { AuthInitializer } from '@/lib/auth-store';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -19,7 +19,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthInitializer>{children}</AuthInitializer>
       </body>
     </html>
   );

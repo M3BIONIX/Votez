@@ -3,105 +3,77 @@
 import { useState, useEffect, useRef } from 'react';
 import { CreatePollForm } from '@/components/create-poll-form';
 import { PollList } from '@/components/poll-list';
-import { fetchPolls } from '@/lib/api';
 import { wsManager } from '@/lib/websocket';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, TrendingUp } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
-import { Poll } from "@/application-shared/interfaces/polls-interface";
 import { AuthButton } from '@/components/auth-button';
 import { AuthModal } from '@/components/auth-modal';
 import { useAuth } from '@/lib/auth-store';
-import { WS_EVENTS } from '@/application-shared/constants/websocket-constants';
+import { usePollsStore } from '@/lib/stores/polls-store';
 
 export default function Home() {
-  const [polls, setPolls] = useState<Poll[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, user, isLoading: authLoading } = useAuth();
+  const { polls, loading, fetchPolls, refreshPolls, handleWebSocketMessage } = usePollsStore();
+  const prevUserUuid = useRef<string | undefined>(undefined);
   const hasLoadedRef = useRef(false);
-  const prevIsLoadingRef = useRef(true);
 
+  // Fetch polls on mount
   useEffect(() => {
-    if (prevIsLoadingRef.current && !isLoading && !hasLoadedRef.current) {
+    if (!hasLoadedRef.current && !authLoading) {
       hasLoadedRef.current = true;
-      loadPolls();
+      fetchPolls();
     }
-    prevIsLoadingRef.current = isLoading;
-  }, [isLoading]);
+  }, [authLoading, fetchPolls]);
 
-  // Reload polls when user logs in or out to refresh vote/like states
+  // Refresh polls when user logs in/out to update vote/like states
   useEffect(() => {
-    if (hasLoadedRef.current && !isLoading) {
+    if (hasLoadedRef.current && !authLoading && prevUserUuid.current !== user?.uuid) {
+      prevUserUuid.current = user?.uuid;
       // Small delay to ensure auth state is fully updated
-      const timeoutId = setTimeout(() => {
-        loadPolls();
+      setTimeout(() => {
+        refreshPolls();
       }, 100);
-      return () => clearTimeout(timeoutId);
     }
-  }, [user?.uuid, isAuthenticated]);
+  }, [user?.uuid, authLoading, refreshPolls]);
 
+  // Setup WebSocket connection
   useEffect(() => {
     wsManager.connect();
-
+    
     const unsubscribe = wsManager.onMessage((message) => {
-      console.log('WebSocket message received:', message.type, message.data);
-      
-      // Handle poll lifecycle events (create/delete)
-      if (message.type === WS_EVENTS.POLL_CREATED) {
-        setPolls(prev => {
-          const exists = prev.some(p => p.uuid === message.data.uuid || p.id === message.data.id);
-          return exists ? prev : [message.data, ...prev];
+      const userVoteMap: Record<string, string> = {};
+      if (user?.voted_polls) {
+        user.voted_polls.forEach(vote => {
+          userVoteMap[vote.poll_uuid] = vote.option_uuid;
         });
-      } else if (message.type === WS_EVENTS.POLL_DELETED) {
-        setPolls(prev =>
-          prev.filter(poll =>
-            poll.uuid !== message.data.uuid && poll.id !== message.data.id
-          )
-        );
-      } 
-      // Handle poll interaction events (like/unlike, vote)
-      else if (
-        message.type === WS_EVENTS.POLL_LIKED || 
-        message.type === WS_EVENTS.POLL_UNLIKED ||
-        message.type === WS_EVENTS.VOTE_CAST ||
-        message.type === WS_EVENTS.POLL_VOTED
-      ) {
-        // Like/unlike, vote submission - update the specific poll
-        setPolls(prev =>
-          prev.map(poll => {
-            if (poll.uuid === message.data.uuid || poll.id === message.data.id) {
-              return message.data;
+      }
+      handleWebSocketMessage(message, userVoteMap);
+      
+      // Trigger notifications for option changes
+      if ((message.type === 'poll_options_added' || message.type === 'poll_options_deleted') && message.data) {
+        const pollUuid = message.data.uuid;
+        console.log('Checking if user voted on poll:', pollUuid, 'User voted:', !!userVoteMap[pollUuid]);
+        if (userVoteMap[pollUuid]) {
+          // Dispatch event that poll cards can listen to
+          const event = new CustomEvent('pollOptionsChanged', {
+            detail: {
+              pollUuid,
+              type: message.type === 'poll_options_added' ? 'added' : 'deleted'
             }
-            return poll;
-          })
-        );
-      } 
-      // Handle poll structure changes (options added/deleted, poll updated)
-      else if (
-        message.type === WS_EVENTS.POLL_OPTIONS_ADDED || 
-        message.type === WS_EVENTS.POLL_UPDATED || 
-        message.type === WS_EVENTS.POLL_OPTIONS_DELETED ||
-        message.type === WS_EVENTS.POLL_SUMMARY_UPDATED
-      ) {
-        // Poll structure changes - update the poll
-        setPolls(prev =>
-          prev.map(poll => {
-            if (poll.uuid === message.data.uuid || poll.id === message.data.id) {
-              return message.data;
-            }
-            return poll;
-          })
-        );
+          });
+          console.log('Dispatching pollOptionsChanged event:', event.detail);
+          window.dispatchEvent(event);
+        }
       }
     });
 
     return () => {
       unsubscribe();
-      wsManager.disconnect();
     };
-  }, []);
+  }, [handleWebSocketMessage, user]);
 
   const handleShowCreateForm = () => {
     if (!isAuthenticated) {
@@ -111,28 +83,9 @@ export default function Home() {
     setShowCreateForm(true);
   };
 
-  const loadPolls = async () => {
-    try {
-      const data = await fetchPolls();
-      setPolls(data);
-    } catch (error) {
-      console.error('Error loading polls:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePollCreated = (newPoll: Poll) => {
-    setPolls(prev => [newPoll, ...prev]);
+  const handlePollCreated = (_poll: any) => {
+    // The websocket will broadcast the poll creation event to all clients
     setShowCreateForm(false);
-  };
-
-  const handlePollUpdated = (updatedPoll: Poll) => {
-    setPolls(prev =>
-      prev.map(poll =>
-        poll.uuid === updatedPoll.uuid || poll.id === updatedPoll.id ? updatedPoll : poll
-      )
-    );
   };
 
   return (
@@ -206,7 +159,7 @@ export default function Home() {
                 <h2 className="text-2xl font-bold text-slate-800">Active Polls</h2>
                 <div className="h-px bg-slate-300 flex-1"></div>
               </div>
-              <PollList polls={polls} onPollUpdated={handlePollUpdated} />
+              <PollList polls={polls} />
             </>
           )}
         </div>
