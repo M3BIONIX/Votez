@@ -17,12 +17,7 @@ package-lock.json
 /build
 /dist
 
-# Environment files
-.env
-.env*.local
-.env.production
-.env.development
-.env.test
+
 
 # Vercel
 .vercel
